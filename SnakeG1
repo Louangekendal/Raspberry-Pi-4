@@ -1,0 +1,164 @@
+import tkinter as tk
+from tkinter import Menu, messagebox
+from PIL import Image, ImageTk
+import random
+import sys
+
+# Function to restart the game
+def restart_game():
+    global snake_tail, snake_coords, snake_move_dir, apple_coords, eaten_apples, game_over_window
+    snake_tail = []
+    snake_coords = [game_dimensions[0] // 2, game_dimensions[1] // 2]
+    snake_move_dir = [1, 0]
+    apple_coords = generateAppleCoords()
+    eaten_apples = 0
+    update_apple_counter()
+    game_over_window.destroy()
+
+# Function to update the apple counter label
+def update_apple_counter():
+    apple_counter_var.set("Apples Eaten: " + str(eaten_apples))
+
+# Function to handle key events
+def key(event):
+    global snake_move_dir
+    global snake_moved_in_this_frame
+
+    if not snake_moved_in_this_frame:
+        snake_moved_in_this_frame = True
+
+        if event.keysym == "Left" and snake_move_dir[0] != 1:
+            snake_move_dir = [-1, 0]
+        elif event.keysym == "Right" and snake_move_dir[0] != -1:
+            snake_move_dir = [1, 0]
+        elif event.keysym == "Up" and snake_move_dir[1] != 1:
+            snake_move_dir = [0, -1]
+        elif event.keysym == "Down" and snake_move_dir[1] != -1:
+            snake_move_dir = [0, 1]
+        else:
+            snake_moved_in_this_frame = False
+
+# Function to generate apple coordinates
+def generateAppleCoords():
+    global snake_tail
+    apple_coords = [random.randint(0, (game_dimensions[0] - 1)), random.randint(0, (game_dimensions[1] - 1))]
+    for segment in snake_tail:
+        if segment[0] == apple_coords[0] and segment[1] == apple_coords[1]:
+            return generateAppleCoords()
+    return apple_coords
+
+# Function to create a snake segment on the canvas
+def createGridItem(coords, hexcolor):
+    snake_canvas.create_rectangle((coords[0]) * snake_scale, (coords[1]) * snake_scale,
+                                  (coords[0] + 1) * snake_scale, (coords[1] + 1) * snake_scale,
+                                  fill=hexcolor, outline="#222222", width=3)
+
+# Function to handle game logic
+def gameloop():
+    global snake_moved_in_this_frame, eaten_apples, apple_coords
+
+    snake_window.after(1000 // wps, gameloop)
+    snake_canvas.delete("all")
+    snake_canvas.create_rectangle(0, 0, win_x, win_y, fill="#222222", outline="#222222")
+
+    snake_tail.append([snake_coords[0], snake_coords[1]])
+    snake_coords[0] += snake_move_dir[0]
+    snake_coords[1] += snake_move_dir[1]
+    
+    if snake_coords[0] == game_dimensions[0] or snake_coords[0] == -1 \
+            or snake_coords[1] == game_dimensions[1] or snake_coords[1] == -1:
+        game_over()
+
+    snake_moved_in_this_frame = False
+
+    for segment in snake_tail:
+        if segment[0] == snake_coords[0] and segment[1] == snake_coords[1]:
+            game_over()
+        createGridItem(segment, "#00ff00")
+
+    createGridItem(apple_coords, "#ff0000")
+    if apple_coords[0] == snake_coords[0] and apple_coords[1] == snake_coords[1]:
+        eaten_apples += 1
+        update_apple_counter()
+        apple_coords = generateAppleCoords()
+    else:
+        snake_tail.pop(0)
+
+# Function to handle game over
+def game_over():
+    global game_over_window
+    game_over_window = tk.Toplevel()
+    game_over_window.title("Game Over")
+    game_over_window.geometry("300x300")
+    game_over_label = tk.Label(game_over_window, text="Game Over!", font=("Arial", 16))
+    game_over_label.pack()
+    # Load the image
+    game_over_image = Image.open("/home/kendal/Downloads/game_over.png")
+    game_over_image = game_over_image.resize((200, 200), Image.ANTIALIAS)
+    game_over_photo = ImageTk.PhotoImage(game_over_image)
+    # Display the image
+    image_label = tk.Label(game_over_window, image=game_over_photo)
+    image_label.image = game_over_photo
+    image_label.pack()
+    play_again_button = tk.Button(game_over_window, text="Play Again", command=restart_game)
+    play_again_button.pack()
+
+# Function to switch to two-player mode
+def switch_to_two_player_mode():
+    messagebox.showinfo("Two Player Mode", "Switching to Two Player Mode")
+
+# Create the main window
+snake_window = tk.Tk()
+snake_window.title("Snake Game")
+snake_window.geometry("800x850")
+snake_window.resizable(0, 0)
+
+# Create the canvas for the game
+snake_canvas = tk.Canvas(snake_window, width=800, height=800, bd=0, highlightthickness=0)
+snake_canvas.pack()
+
+# Create the Apple Counter label
+apple_counter_var = tk.StringVar()
+apple_counter_var.set("Apples Eaten: 0")
+apple_counter_label = tk.Label(snake_window, textvariable=apple_counter_var, fg="white", bg="black")
+apple_counter_label.pack()
+
+# Create the menu bar
+menubar = Menu(snake_window)
+snake_window.config(menu=menubar)
+
+# Create the file menu
+file_menu = Menu(menubar, tearoff=0)
+file_menu.add_command(label="Restart", command=restart_game)
+file_menu.add_command(label="Exit", command=snake_window.destroy)
+
+# Create the options menu
+options_menu = Menu(menubar, tearoff=0)
+options_menu.add_command(label="Two Player Mode", command=switch_to_two_player_mode)
+
+# Add menus to the menu bar
+menubar.add_cascade(label="File", menu=file_menu)
+menubar.add_cascade(label="Options", menu=options_menu)
+
+# Game parameters
+win_x, win_y = 800, 800
+snake_scale = 25
+game_dimensions = [win_x // snake_scale, win_y // snake_scale]
+snake_coords = [game_dimensions[0] // 2, game_dimensions[1] // 2]
+snake_tail = []
+snake_move_dir = [1, 0]
+snake_moved_in_this_frame = False
+wps = 10
+eaten_apples = 0
+apple_coords = generateAppleCoords()
+
+# Bind key events
+snake_window.bind("<KeyPress>", key)
+
+# Start the game loop
+gameloop()
+
+# Run the application
+snake_window.mainloop()
+
+
